@@ -1,5 +1,9 @@
 buildscript {
+    // Define Groovy version to use inside buildscript
+    ext.optimizedGroovyVersion = '4.0.31-SNAPSHOT'
+    
     repositories {
+        mavenLocal()  // Use mavenLocal to pick up our optimized Groovy
         mavenCentral()
         maven { url "https://repo.grails.org/grails/restricted" }
         maven {
@@ -15,6 +19,14 @@ buildscript {
         classpath "org.apache.grails:grails-data-hibernate5"
         classpath "cloud.wondrify:asset-pipeline-gradle"
     }
+    // Force our optimized Groovy version in buildscript classpath too
+    configurations.classpath {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.apache.groovy') {
+                details.useVersion '4.0.31-SNAPSHOT'
+            }
+        }
+    }
 }
 
 version = "0.1"
@@ -28,6 +40,7 @@ apply plugin:"cloud.wondrify.asset-pipeline"
 apply plugin:"org.apache.grails.gradle.grails-gsp"
 
 repositories {
+    mavenLocal()  // Use mavenLocal to pick up our optimized Groovy
     mavenCentral()
     maven { url "https://repo.grails.org/grails/restricted" }
     maven {
@@ -38,10 +51,37 @@ repositories {
     }
 }
 
+// Force all configurations to use our optimized Groovy version using dependency substitution
+configurations.all {
+    resolutionStrategy {
+        cacheDynamicVersionsFor 0, 'seconds'
+        cacheChangingModulesFor 0, 'seconds'
+        dependencySubstitution {
+            substitute module('org.apache.groovy:groovy') using module('org.apache.groovy:groovy:4.0.31-SNAPSHOT') because 'Using locally built optimized Groovy'
+            substitute module('org.apache.groovy:groovy-xml') using module('org.apache.groovy:groovy-xml:4.0.31-SNAPSHOT') because 'Using locally built optimized Groovy'
+            substitute module('org.apache.groovy:groovy-json') using module('org.apache.groovy:groovy-json:4.0.31-SNAPSHOT') because 'Using locally built optimized Groovy'
+            substitute module('org.apache.groovy:groovy-sql') using module('org.apache.groovy:groovy-sql:4.0.31-SNAPSHOT') because 'Using locally built optimized Groovy'
+            substitute module('org.apache.groovy:groovy-templates') using module('org.apache.groovy:groovy-templates:4.0.31-SNAPSHOT') because 'Using locally built optimized Groovy'
+            substitute module('org.apache.groovy:groovy-datetime') using module('org.apache.groovy:groovy-datetime:4.0.31-SNAPSHOT') because 'Using locally built optimized Groovy'
+            substitute module('org.apache.groovy:groovy-dateutil') using module('org.apache.groovy:groovy-dateutil:4.0.31-SNAPSHOT') because 'Using locally built optimized Groovy'
+            substitute module('org.apache.groovy:groovy-nio') using module('org.apache.groovy:groovy-nio:4.0.31-SNAPSHOT') because 'Using locally built optimized Groovy'
+        }
+    }
+}
+
 dependencies {
     console "org.apache.grails:grails-console"
     developmentOnly "org.springframework.boot:spring-boot-devtools"
     implementation platform("org.apache.grails:grails-bom:$grailsVersion")
+    
+    // Explicitly add our optimized Groovy modules as first-class dependencies
+    // These will be resolved first and should take priority over transitive deps
+    implementation "org.apache.groovy:groovy:4.0.31-SNAPSHOT"
+    implementation "org.apache.groovy:groovy-xml:4.0.31-SNAPSHOT"
+    implementation "org.apache.groovy:groovy-json:4.0.31-SNAPSHOT"
+    implementation "org.apache.groovy:groovy-sql:4.0.31-SNAPSHOT"
+    implementation "org.apache.groovy:groovy-templates:4.0.31-SNAPSHOT"
+    
     implementation "org.springframework.boot:spring-boot-starter-logging"
     implementation "org.springframework.boot:spring-boot-starter-validation"
     implementation "org.springframework.boot:spring-boot-autoconfigure"
@@ -75,12 +115,28 @@ dependencies {
     testImplementation "org.apache.grails:grails-testing-support-web"
 }
 
-compileJava.options.release = 17
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+// Indy is enabled (default for Groovy 4)
+tasks.withType(GroovyCompile).configureEach {
+    groovyOptions.with {
+        optimizationOptions.indy = true
+    }
+}
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
 }
 
+
+// Disable asset compilation to avoid Groovy version conflicts
+tasks.named('assetCompile').configure {
+    enabled = false
+}
 
 assets {
     excludes = [
@@ -96,4 +152,3 @@ assets {
             'webjars/bootstrap-icons/*/font/fonts/*',
     ]
 }
-
