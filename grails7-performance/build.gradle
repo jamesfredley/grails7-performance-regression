@@ -16,6 +16,14 @@ buildscript {
         classpath "org.apache.grails:grails-data-hibernate5"
         classpath "cloud.wondrify:asset-pipeline-gradle"
     }
+    // Force Groovy version in buildscript classpath for asset-pipeline
+    configurations.classpath {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.apache.groovy') {
+                details.useVersion project.properties['groovy.version'] ?: '4.0.31-SNAPSHOT'
+            }
+        }
+    }
 }
 
 version = "0.1"
@@ -92,11 +100,6 @@ tasks.withType(GroovyCompile).configureEach {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
-}
-
-// Disable asset compilation to avoid Groovy version conflicts
-tasks.named('assetCompile').configure {
-    enabled = false
 }
 
 assets {
